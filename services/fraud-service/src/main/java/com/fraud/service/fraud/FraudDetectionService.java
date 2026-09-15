@@ -1,14 +1,22 @@
 package com.fraud.service.fraud;
 
-import com.fraud.service.dto.FraudRequest;
-import com.fraud.service.dto.FraudResponse;
-import org.springframework.stereotype.Service;
-
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.stereotype.Service;
+
+import com.fraud.service.dto.FraudRequest;
+import com.fraud.service.dto.FraudResponse;
+import com.fraud.service.kafka.AlertProducer;
+
 @Service
 public class FraudDetectionService {
+
+    private final AlertProducer alertProducer;
+
+    public FraudDetectionService(AlertProducer alertProducer) {
+        this.alertProducer = alertProducer;
+    }
 
     public FraudResponse analyze(FraudRequest transaction) {
 
@@ -18,6 +26,7 @@ public class FraudDetectionService {
         // High amount rule
         if (transaction.getAmount() != null
                 && transaction.getAmount().doubleValue() > 50000) {
+
             riskScore += 30;
             reasons.add("High transaction amount");
         }
@@ -25,6 +34,7 @@ public class FraudDetectionService {
         // Very high amount rule
         if (transaction.getAmount() != null
                 && transaction.getAmount().doubleValue() >= 100000) {
+
             riskScore += 50;
             reasons.add("Very high transaction amount");
         }
@@ -32,6 +42,7 @@ public class FraudDetectionService {
         // Unknown device rule
         if (transaction.getDeviceId() != null
                 && transaction.getDeviceId().equalsIgnoreCase("UNKNOWN")) {
+
             riskScore += 20;
             reasons.add("New or unknown device detected");
         }
@@ -39,6 +50,7 @@ public class FraudDetectionService {
         // Unknown location rule
         if (transaction.getLocation() != null
                 && transaction.getLocation().equalsIgnoreCase("UNKNOWN")) {
+
             riskScore += 15;
             reasons.add("Unusual or unknown location detected");
         }
@@ -59,6 +71,21 @@ public class FraudDetectionService {
         }
 
         boolean flagged = riskLevel.equals("HIGH");
+
+        // Send alert to Kafka only for HIGH-risk transactions
+        if (flagged) {
+
+            String alertMessage = "{"
+                    + "\"customerId\":\"" + transaction.getCustomerId() + "\","
+                    + "\"amount\":" + transaction.getAmount() + ","
+                    + "\"riskScore\":" + riskScore + ","
+                    + "\"riskLevel\":\"" + riskLevel + "\","
+                    + "\"flagged\":" + flagged + ","
+                    + "\"reasons\":" + reasons
+                    + "}";
+
+            alertProducer.sendAlert(alertMessage);
+        }
 
         return new FraudResponse(
                 riskScore,
