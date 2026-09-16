@@ -200,6 +200,140 @@ body {
 }
 
 /* =========================
+   FRAUD ALERTS
+========================= */
+
+.alerts-panel {
+  border-top: 3px solid #ef4444;
+}
+
+.alert-count {
+  padding: 8px 14px;
+  background: #fee2e2;
+  color: #b91c1c;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.no-alerts {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 20px;
+  border: 1px dashed #d1d5db;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.no-alerts-icon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #dcfce7;
+  border-radius: 50%;
+  font-size: 20px;
+}
+
+.no-alerts h3 {
+  color: #374151;
+  font-size: 15px;
+  margin-bottom: 5px;
+}
+
+.no-alerts p {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.alerts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.alert-item {
+  display: flex;
+  gap: 14px;
+  padding: 16px;
+  background: #fff7f7;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.alert-item:hover {
+  transform: translateX(2px);
+  box-shadow: 0 3px 10px rgba(239, 68, 68, 0.1);
+}
+
+.alert-icon {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fee2e2;
+  border-radius: 10px;
+  font-size: 18px;
+}
+
+.alert-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.alert-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 8px;
+}
+
+.alert-top strong {
+  color: #111827;
+  font-size: 14px;
+}
+
+.alert-risk {
+  padding: 4px 9px;
+  background: #dc2626;
+  color: white;
+  border-radius: 15px;
+  font-size: 9px;
+  font-weight: bold;
+}
+
+.alert-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  color: #64748b;
+  font-size: 11px;
+  margin-bottom: 9px;
+}
+
+.alert-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.alert-reasons span {
+  padding: 5px 8px;
+  background: #fee2e2;
+  color: #991b1b;
+  border-radius: 5px;
+  font-size: 10px;
+}
+
+/* =========================
    TRANSACTION FORM
 ========================= */
 
@@ -555,6 +689,10 @@ td strong {
     gap: 15px;
     flex-direction: column;
   }
+
+  .alert-top {
+    align-items: flex-start;
+  }
 }
 
 @media (max-width: 450px) {
@@ -578,5 +716,10 @@ td strong {
 
   .stat-card h2 {
     font-size: 26px;
+  }
+
+  .alert-details {
+    flex-direction: column;
+    gap: 5px;
   }
 }

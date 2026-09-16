@@ -5,6 +5,8 @@ import "./App.css";
 function App() {
   const [transactions, setTransactions] = useState([]);
   const [riskResults, setRiskResults] = useState({});
+  const [alerts, setAlerts] = useState([]);
+
   const [formData, setFormData] = useState({
     customerId: "",
     amount: "",
@@ -28,6 +30,10 @@ function App() {
   const lowRiskCount = Object.values(riskResults).filter(
     (result) => result.riskLevel === "LOW",
   ).length;
+
+  // =========================
+  // FRAUD ANALYSIS
+  // =========================
 
   const analyzeTransaction = (transaction) => {
     return axios
@@ -56,6 +62,10 @@ function App() {
       });
   };
 
+  // =========================
+  // FETCH TRANSACTIONS
+  // =========================
+
   const fetchTransactions = () => {
     return axios
       .get("http://localhost:8080/api/transactions")
@@ -68,6 +78,37 @@ function App() {
         return [];
       });
   };
+
+  // =========================
+  // FETCH FRAUD ALERTS
+  // =========================
+
+  const fetchAlerts = () => {
+    axios
+      .get("http://localhost:8082/api/alerts")
+      .then((response) => {
+        const parsedAlerts = response.data
+          .map((alert) => {
+            try {
+              return JSON.parse(alert);
+            } catch (error) {
+              console.error("Invalid alert JSON:", alert);
+              return null;
+            }
+          })
+          .filter((alert) => alert !== null)
+          .reverse();
+
+        setAlerts(parsedAlerts);
+      })
+      .catch((error) => {
+        console.error("Error fetching fraud alerts:", error);
+      });
+  };
+
+  // =========================
+  // ANALYZE EXISTING
+  // =========================
 
   const analyzeExistingTransactions = (transactionList) => {
     if (!transactionList || transactionList.length === 0) {
@@ -91,17 +132,28 @@ function App() {
     });
   };
 
+  // =========================
+  // INITIAL LOAD + REFRESH
+  // =========================
+
   useEffect(() => {
     fetchTransactions().then((transactionList) => {
       analyzeExistingTransactions(transactionList);
     });
 
+    fetchAlerts();
+
     const interval = setInterval(() => {
       fetchTransactions();
+      fetchAlerts();
     }, 5000);
 
     return () => clearInterval(interval);
   }, []);
+
+  // =========================
+  // FORM HANDLING
+  // =========================
 
   const handleChange = (event) => {
     setFormData({
@@ -109,6 +161,10 @@ function App() {
       [event.target.name]: event.target.value,
     });
   };
+
+  // =========================
+  // CREATE TRANSACTION
+  // =========================
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -153,12 +209,21 @@ function App() {
             }));
           }
         });
+
+        // Refresh alerts after creating a transaction
+        setTimeout(() => {
+          fetchAlerts();
+        }, 1500);
       })
       .catch((error) => {
         console.error("Error creating transaction:", error);
         setMessage("Failed to create transaction.");
       });
   };
+
+  // =========================
+  // HELPERS
+  // =========================
 
   const getRiskClass = (riskLevel) => {
     if (!riskLevel) {
@@ -170,7 +235,9 @@ function App() {
 
   return (
     <div className="dashboard">
-      {/* Header */}
+      {/* =========================
+          HEADER
+      ========================= */}
 
       <header className="header">
         <div className="brand-section">
@@ -188,7 +255,9 @@ function App() {
         </div>
       </header>
 
-      {/* Statistics */}
+      {/* =========================
+          STATISTICS
+      ========================= */}
 
       <section className="stats-grid">
         <div className="stat-card total-card">
@@ -228,7 +297,73 @@ function App() {
         </div>
       </section>
 
-      {/* Create Transaction */}
+      {/* =========================
+          FRAUD ALERTS
+      ========================= */}
+
+      <section className="panel alerts-panel">
+        <div className="panel-header transaction-header">
+          <div>
+            <h2>🚨 Fraud Alerts</h2>
+            <p>Real-time high-risk transactions detected by the system</p>
+          </div>
+
+          <div className="alert-count">
+            {alerts.length} Alert{alerts.length !== 1 ? "s" : ""}
+          </div>
+        </div>
+
+        {alerts.length === 0 ? (
+          <div className="no-alerts">
+            <div className="no-alerts-icon">🛡️</div>
+
+            <div>
+              <h3>No Fraud Alerts</h3>
+              <p>No high-risk alerts have been received yet.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="alerts-list">
+            {alerts.slice(0, 10).map((alert, index) => (
+              <div className="alert-item" key={index}>
+                <div className="alert-icon">🚨</div>
+
+                <div className="alert-content">
+                  <div className="alert-top">
+                    <strong>{alert.customerId}</strong>
+
+                    <span className="alert-risk">{alert.riskLevel}</span>
+                  </div>
+
+                  <div className="alert-details">
+                    <span>
+                      Amount: ₹{Number(alert.amount).toLocaleString("en-IN")}
+                    </span>
+
+                    <span>Risk Score: {alert.riskScore}/100</span>
+
+                    {alert.mlRiskScore !== undefined && (
+                      <span>ML Score: {alert.mlRiskScore}</span>
+                    )}
+                  </div>
+
+                  {alert.reasons?.length > 0 && (
+                    <div className="alert-reasons">
+                      {alert.reasons.map((reason, reasonIndex) => (
+                        <span key={reasonIndex}>{reason}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* =========================
+          CREATE TRANSACTION
+      ========================= */}
 
       <section className="panel">
         <div className="panel-header">
@@ -338,7 +473,9 @@ function App() {
         {message && <p className="form-message">{message}</p>}
       </section>
 
-      {/* Transactions */}
+      {/* =========================
+          TRANSACTIONS
+      ========================= */}
 
       <section className="panel">
         <div className="panel-header transaction-header">
@@ -356,7 +493,9 @@ function App() {
         {transactions.length === 0 ? (
           <div className="empty">
             <div className="empty-icon">📭</div>
+
             <h3>No transactions available</h3>
+
             <p>Transactions will appear here in real time.</p>
           </div>
         ) : (
@@ -413,6 +552,7 @@ function App() {
                         {result ? (
                           <div className="risk-score">
                             <strong>{result.riskScore}</strong>
+
                             <span>/100</span>
                           </div>
                         ) : (
@@ -456,12 +596,14 @@ function App() {
         )}
       </section>
 
-      {/* Footer */}
+      {/* =========================
+          FOOTER
+      ========================= */}
 
       <footer className="footer">
         <p>
           Fraud Detection System • Real-Time Monitoring • Kafka + Spring Boot +
-          React
+          Python ML + React
         </p>
       </footer>
     </div>

@@ -5,6 +5,7 @@ import com.fraud.service.dto.CustomerTransaction;
 import com.fraud.service.dto.FraudRequest;
 import com.fraud.service.dto.FraudResponse;
 import com.fraud.service.kafka.AlertProducer;
+import com.fraud.service.ml.MLServiceClient;
 
 import org.springframework.stereotype.Service;
 
@@ -18,19 +19,26 @@ public class FraudDetectionService {
 
     private final AlertProducer alertProducer;
     private final TransactionHistoryClient transactionHistoryClient;
+    private final MLServiceClient mlServiceClient;
 
     public FraudDetectionService(
             AlertProducer alertProducer,
-            TransactionHistoryClient transactionHistoryClient) {
+            TransactionHistoryClient transactionHistoryClient,
+            MLServiceClient mlServiceClient) {
 
         this.alertProducer = alertProducer;
         this.transactionHistoryClient = transactionHistoryClient;
+        this.mlServiceClient = mlServiceClient;
     }
 
     public FraudResponse analyze(FraudRequest transaction) {
 
         int riskScore = 0;
         List<String> reasons = new ArrayList<>();
+
+        // =========================
+        // RULE ENGINE
+        // =========================
 
         // High amount rule
         if (transaction.getAmount() != null
@@ -50,7 +58,8 @@ public class FraudDetectionService {
 
         // Unknown device rule
         if (transaction.getDeviceId() != null
-                && transaction.getDeviceId().equalsIgnoreCase("UNKNOWN")) {
+                && transaction.getDeviceId()
+                        .equalsIgnoreCase("UNKNOWN")) {
 
             riskScore += 20;
             reasons.add("New or unknown device detected");
@@ -58,22 +67,28 @@ public class FraudDetectionService {
 
         // Unknown location rule
         if (transaction.getLocation() != null
-                && transaction.getLocation().equalsIgnoreCase("UNKNOWN")) {
+                && transaction.getLocation()
+                        .equalsIgnoreCase("UNKNOWN")) {
 
             riskScore += 15;
             reasons.add("Unusual or unknown location detected");
         }
 
-        // Get customer's previous transactions
+        // =========================
+        // CUSTOMER HISTORY
+        // =========================
+
         List<CustomerTransaction> previousTransactions =
                 transactionHistoryClient.getCustomerTransactions(
                         transaction.getCustomerId()
                 );
 
-        // Remove the current transaction from history
+        // Remove current transaction
         previousTransactions = previousTransactions.stream()
-                .filter(previous -> transaction.getId() == null
-                        || !transaction.getId().equals(previous.getId()))
+                .filter(previous ->
+                        transaction.getId() == null
+                                || !transaction.getId()
+                                        .equals(previous.getId()))
                 .toList();
 
         System.out.println(
@@ -87,7 +102,10 @@ public class FraudDetectionService {
         if (previousTransactions.size() >= 3) {
 
             riskScore += 10;
-            reasons.add("High transaction frequency detected");
+
+            reasons.add(
+                    "High transaction frequency detected"
+            );
         }
 
         // Customer-specific unusual amount rule
@@ -96,10 +114,13 @@ public class FraudDetectionService {
 
             double totalAmount = 0;
 
-            for (CustomerTransaction previous : previousTransactions) {
+            for (CustomerTransaction previous :
+                    previousTransactions) {
 
                 if (previous.getAmount() != null) {
-                    totalAmount += previous.getAmount().doubleValue();
+
+                    totalAmount +=
+                            previous.getAmount().doubleValue();
                 }
             }
 
@@ -109,7 +130,6 @@ public class FraudDetectionService {
             double currentAmount =
                     transaction.getAmount().doubleValue();
 
-            // Current transaction is more than 3 times customer's average
             if (currentAmount > averageAmount * 3) {
 
                 riskScore += 20;
@@ -123,15 +143,18 @@ public class FraudDetectionService {
         // Location history rule
         if (!previousTransactions.isEmpty()
                 && transaction.getLocation() != null
-                && !transaction.getLocation().equalsIgnoreCase("UNKNOWN")) {
+                && !transaction.getLocation()
+                        .equalsIgnoreCase("UNKNOWN")) {
 
             boolean newLocation = true;
 
-            for (CustomerTransaction previous : previousTransactions) {
+            for (CustomerTransaction previous :
+                    previousTransactions) {
 
                 if (previous.getLocation() != null
-                        && previous.getLocation().equalsIgnoreCase(
-                                transaction.getLocation())) {
+                        && previous.getLocation()
+                                .equalsIgnoreCase(
+                                        transaction.getLocation())) {
 
                     newLocation = false;
                     break;
@@ -151,15 +174,18 @@ public class FraudDetectionService {
         // Device history rule
         if (!previousTransactions.isEmpty()
                 && transaction.getDeviceId() != null
-                && !transaction.getDeviceId().equalsIgnoreCase("UNKNOWN")) {
+                && !transaction.getDeviceId()
+                        .equalsIgnoreCase("UNKNOWN")) {
 
             boolean newDevice = true;
 
-            for (CustomerTransaction previous : previousTransactions) {
+            for (CustomerTransaction previous :
+                    previousTransactions) {
 
                 if (previous.getDeviceId() != null
-                        && previous.getDeviceId().equalsIgnoreCase(
-                                transaction.getDeviceId())) {
+                        && previous.getDeviceId()
+                                .equalsIgnoreCase(
+                                        transaction.getDeviceId())) {
 
                     newDevice = false;
                     break;
@@ -184,19 +210,10 @@ public class FraudDetectionService {
 
             int recentTransactionCount = 0;
 
-            System.out.println(
-                    "Current transaction timestamp: "
-                            + currentTime
-            );
-
-            for (CustomerTransaction previous : previousTransactions) {
+            for (CustomerTransaction previous :
+                    previousTransactions) {
 
                 if (previous.getTimestamp() != null) {
-
-                    System.out.println(
-                            "Previous transaction timestamp: "
-                                    + previous.getTimestamp()
-                    );
 
                     long secondsBetween = Math.abs(
                             Duration.between(
@@ -205,24 +222,13 @@ public class FraudDetectionService {
                             ).getSeconds()
                     );
 
-                    System.out.println(
-                            "Seconds between transactions: "
-                                    + secondsBetween
-                    );
-
-                    // Previous transaction occurred within 5 minutes
                     if (secondsBetween <= 300) {
+
                         recentTransactionCount++;
                     }
                 }
             }
 
-            System.out.println(
-                    "Recent transactions within 5 minutes: "
-                            + recentTransactionCount
-            );
-
-            // 2 or more previous transactions within 5 minutes
             if (recentTransactionCount >= 2) {
 
                 riskScore += 20;
@@ -230,23 +236,43 @@ public class FraudDetectionService {
                 reasons.add(
                         "Multiple transactions detected within a short time"
                 );
-
-                System.out.println(
-                        ">>> RAPID TRANSACTION RULE TRIGGERED <<<"
-                );
-
-                System.out.println(
-                        ">>> Added 20 Risk Score <<<"
-                );
             }
         }
 
-        // Maximum score is 100
+        // =========================
+        // MACHINE LEARNING
+        // =========================
+
+        double mlRiskScore =
+                mlServiceClient.getMLRiskScore(transaction);
+
+        System.out.println(
+                "ML Risk Score: "
+                        + mlRiskScore
+        );
+
+        /*
+         * Combine rule engine and ML.
+         *
+         * 70% rule score
+         * 30% ML score
+         */
+        double combinedScore =
+                (riskScore * 0.70)
+                        + (mlRiskScore * 0.30);
+
+        riskScore = (int) Math.round(combinedScore);
+
+        // Maximum score
         if (riskScore > 100) {
+
             riskScore = 100;
         }
 
-        // Determine risk level
+        // =========================
+        // RISK LEVEL
+        // =========================
+
         String riskLevel;
 
         if (riskScore <= 30) {
@@ -262,34 +288,84 @@ public class FraudDetectionService {
             riskLevel = "HIGH";
         }
 
-        boolean flagged = riskLevel.equals("HIGH");
+        boolean flagged =
+                riskLevel.equals("HIGH");
 
-        // Final fraud analysis result
+        // =========================
+        // FINAL RESULT
+        // =========================
+
         System.out.println();
-        System.out.println("########################################");
-        System.out.println("### FINAL FRAUD ANALYSIS RESULT ###");
-        System.out.println("Customer ID : " + transaction.getCustomerId());
-        System.out.println("Amount      : " + transaction.getAmount());
-        System.out.println("Risk Score  : " + riskScore);
-        System.out.println("Risk Level  : " + riskLevel);
-        System.out.println("Flagged     : " + flagged);
-        System.out.println("Send Alert  : " + transaction.isSendAlert());
-        System.out.println("Reasons     : " + reasons);
-        System.out.println("########################################");
+        System.out.println(
+                "########################################"
+        );
+        System.out.println(
+                "### FINAL FRAUD ANALYSIS RESULT ###"
+        );
+        System.out.println(
+                "Customer ID : "
+                        + transaction.getCustomerId()
+        );
+        System.out.println(
+                "Amount      : "
+                        + transaction.getAmount()
+        );
+        System.out.println(
+                "Rule Score  : "
+                        + riskScore
+        );
+        System.out.println(
+                "ML Score    : "
+                        + mlRiskScore
+        );
+        System.out.println(
+                "Risk Level  : "
+                        + riskLevel
+        );
+        System.out.println(
+                "Flagged     : "
+                        + flagged
+        );
+        System.out.println(
+                "Send Alert  : "
+                        + transaction.isSendAlert()
+        );
+        System.out.println(
+                "Reasons     : "
+                        + reasons
+        );
+        System.out.println(
+                "########################################"
+        );
         System.out.println();
 
-        // Send Kafka alert ONLY when:
-        // 1. Transaction is HIGH risk
-        // 2. Transaction came from the real Kafka transaction flow
+        // =========================
+        // SEND FRAUD ALERT
+        // =========================
+
         if (flagged && transaction.isSendAlert()) {
 
             String alertMessage = "{"
-                    + "\"customerId\":\"" + transaction.getCustomerId() + "\","
-                    + "\"amount\":" + transaction.getAmount() + ","
-                    + "\"riskScore\":" + riskScore + ","
-                    + "\"riskLevel\":\"" + riskLevel + "\","
-                    + "\"flagged\":" + flagged + ","
-                    + "\"reasons\":" + reasons
+                    + "\"customerId\":\""
+                    + transaction.getCustomerId()
+                    + "\","
+                    + "\"amount\":"
+                    + transaction.getAmount()
+                    + ","
+                    + "\"riskScore\":"
+                    + riskScore
+                    + ","
+                    + "\"mlRiskScore\":"
+                    + mlRiskScore
+                    + ","
+                    + "\"riskLevel\":\""
+                    + riskLevel
+                    + "\","
+                    + "\"flagged\":"
+                    + flagged
+                    + ","
+                    + "\"reasons\":"
+                    + reasons
                     + "}";
 
             alertProducer.sendAlert(alertMessage);
