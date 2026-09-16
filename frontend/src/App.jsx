@@ -29,7 +29,6 @@ function App() {
     (result) => result.riskLevel === "LOW",
   ).length;
 
-  // Analyze one transaction
   const analyzeTransaction = (transaction) => {
     return axios
       .post("http://localhost:8080/api/fraud/analyze", {
@@ -42,8 +41,6 @@ function App() {
         transactionType: transaction.transactionType,
         deviceId: transaction.deviceId,
         timestamp: transaction.timestamp,
-
-        // Dashboard analysis must NOT send a Kafka alert
         sendAlert: false,
       })
       .then((response) => {
@@ -59,7 +56,6 @@ function App() {
       });
   };
 
-  // Fetch transactions
   const fetchTransactions = () => {
     return axios
       .get("http://localhost:8080/api/transactions")
@@ -73,7 +69,6 @@ function App() {
       });
   };
 
-  // Analyze all existing transactions once
   const analyzeExistingTransactions = (transactionList) => {
     if (!transactionList || transactionList.length === 0) {
       return;
@@ -97,15 +92,10 @@ function App() {
   };
 
   useEffect(() => {
-    // First dashboard load
     fetchTransactions().then((transactionList) => {
-      // Analyze existing transactions only once
       analyzeExistingTransactions(transactionList);
     });
 
-    // Refresh transaction list every 5 seconds.
-    // IMPORTANT:
-    // We do NOT analyze transactions again here.
     const interval = setInterval(() => {
       fetchTransactions();
     }, 5000);
@@ -150,14 +140,11 @@ function App() {
           deviceId: "",
         });
 
-        // Add new transaction immediately
         setTransactions((previousTransactions) => [
           ...previousTransactions,
           newTransaction,
         ]);
 
-        // Analyze new transaction exactly once.
-        // The backend Kafka flow already handles the real alert.
         analyzeTransaction(newTransaction).then((item) => {
           if (item) {
             setRiskResults((previousResults) => ({
@@ -173,139 +160,220 @@ function App() {
       });
   };
 
+  const getRiskClass = (riskLevel) => {
+    if (!riskLevel) {
+      return "analyzing";
+    }
+
+    return riskLevel.toLowerCase();
+  };
+
   return (
     <div className="dashboard">
+      {/* Header */}
+
       <header className="header">
-        <div>
-          <h1>Fraud Detection System</h1>
-          <p>Real-Time Transaction Monitoring</p>
+        <div className="brand-section">
+          <div className="brand-icon">🛡️</div>
+
+          <div>
+            <h1>Fraud Detection System</h1>
+            <p>Real-Time Transaction Monitoring</p>
+          </div>
         </div>
 
-        <div className="status">
+        <div className="system-status">
           <span className="status-dot"></span>
-          System Online
+          <span>System Online</span>
         </div>
       </header>
 
-      <section className="cards">
-        <div className="card">
-          <h3>Total Transactions</h3>
-          <p>{transactions.length}</p>
+      {/* Statistics */}
+
+      <section className="stats-grid">
+        <div className="stat-card total-card">
+          <div className="stat-icon">📊</div>
+
+          <div>
+            <p className="stat-label">Total Transactions</p>
+            <h2>{transactions.length}</h2>
+          </div>
         </div>
 
-        <div className="card">
-          <h3>High Risk</h3>
-          <p>{highRiskCount}</p>
+        <div className="stat-card high-card">
+          <div className="stat-icon">🚨</div>
+
+          <div>
+            <p className="stat-label">High Risk</p>
+            <h2>{highRiskCount}</h2>
+          </div>
         </div>
 
-        <div className="card">
-          <h3>Medium Risk</h3>
-          <p>{mediumRiskCount}</p>
+        <div className="stat-card medium-card">
+          <div className="stat-icon">⚠️</div>
+
+          <div>
+            <p className="stat-label">Medium Risk</p>
+            <h2>{mediumRiskCount}</h2>
+          </div>
         </div>
 
-        <div className="card">
-          <h3>Low Risk</h3>
-          <p>{lowRiskCount}</p>
+        <div className="stat-card low-card">
+          <div className="stat-icon">✓</div>
+
+          <div>
+            <p className="stat-label">Low Risk</p>
+            <h2>{lowRiskCount}</h2>
+          </div>
         </div>
       </section>
 
-      <section className="transactions">
-        <h2>Create New Transaction</h2>
+      {/* Create Transaction */}
+
+      <section className="panel">
+        <div className="panel-header">
+          <div>
+            <h2>Create New Transaction</h2>
+            <p>Submit a transaction for real-time fraud analysis</p>
+          </div>
+        </div>
 
         <form className="transaction-form" onSubmit={handleSubmit}>
-          <input
-            type="text"
-            name="customerId"
-            placeholder="Customer ID"
-            value={formData.customerId}
-            onChange={handleChange}
-            required
-          />
+          <div className="input-group">
+            <label>Customer ID</label>
 
-          <input
-            type="number"
-            name="amount"
-            placeholder="Amount"
-            value={formData.amount}
-            onChange={handleChange}
-            required
-          />
+            <input
+              type="text"
+              name="customerId"
+              placeholder="Example: CUST1001"
+              value={formData.customerId}
+              onChange={handleChange}
+              required
+            />
+          </div>
 
-          <input
-            type="text"
-            name="currency"
-            placeholder="Currency"
-            value={formData.currency}
-            onChange={handleChange}
-            required
-          />
+          <div className="input-group">
+            <label>Amount</label>
 
-          <input
-            type="text"
-            name="merchant"
-            placeholder="Merchant"
-            value={formData.merchant}
-            onChange={handleChange}
-            required
-          />
+            <input
+              type="number"
+              name="amount"
+              placeholder="Example: 50000"
+              value={formData.amount}
+              onChange={handleChange}
+              required
+            />
+          </div>
 
-          <input
-            type="text"
-            name="location"
-            placeholder="Location"
-            value={formData.location}
-            onChange={handleChange}
-            required
-          />
+          <div className="input-group">
+            <label>Currency</label>
 
-          <select
-            name="transactionType"
-            value={formData.transactionType}
-            onChange={handleChange}
-          >
-            <option value="ONLINE">ONLINE</option>
-            <option value="POS">POS</option>
-            <option value="ATM">ATM</option>
-          </select>
+            <input
+              type="text"
+              name="currency"
+              value={formData.currency}
+              onChange={handleChange}
+              required
+            />
+          </div>
 
-          <input
-            type="text"
-            name="deviceId"
-            placeholder="Device ID"
-            value={formData.deviceId}
-            onChange={handleChange}
-            required
-          />
+          <div className="input-group">
+            <label>Merchant</label>
 
-          <button type="submit">Create Transaction</button>
+            <input
+              type="text"
+              name="merchant"
+              placeholder="Example: Amazon"
+              value={formData.merchant}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="input-group">
+            <label>Location</label>
+
+            <input
+              type="text"
+              name="location"
+              placeholder="Example: Chennai"
+              value={formData.location}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="input-group">
+            <label>Transaction Type</label>
+
+            <select
+              name="transactionType"
+              value={formData.transactionType}
+              onChange={handleChange}
+            >
+              <option value="ONLINE">ONLINE</option>
+              <option value="POS">POS</option>
+              <option value="ATM">ATM</option>
+            </select>
+          </div>
+
+          <div className="input-group">
+            <label>Device ID</label>
+
+            <input
+              type="text"
+              name="deviceId"
+              placeholder="Example: DEV001"
+              value={formData.deviceId}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <button className="create-button" type="submit">
+            Analyze Transaction
+          </button>
         </form>
 
         {message && <p className="form-message">{message}</p>}
       </section>
 
-      <section className="transactions">
-        <h2>Recent Transactions</h2>
+      {/* Transactions */}
+
+      <section className="panel">
+        <div className="panel-header transaction-header">
+          <div>
+            <h2>Recent Transactions</h2>
+            <p>Live transaction risk analysis</p>
+          </div>
+
+          <div className="live-indicator">
+            <span></span>
+            Live Monitoring
+          </div>
+        </div>
 
         {transactions.length === 0 ? (
           <div className="empty">
-            <p>No transactions available</p>
-            <span>Transactions will appear here in real time.</span>
+            <div className="empty-icon">📭</div>
+            <h3>No transactions available</h3>
+            <p>Transactions will appear here in real time.</p>
           </div>
         ) : (
           <div className="table-container">
             <table>
               <thead>
                 <tr>
-                  <th>Customer ID</th>
+                  <th>Customer</th>
                   <th>Amount</th>
                   <th>Merchant</th>
                   <th>Location</th>
                   <th>Type</th>
                   <th>Device</th>
-                  <th>Timestamp</th>
-                  <th>Risk Score</th>
-                  <th>Risk Level</th>
-                  <th>Fraud Reasons</th>
+                  <th>Time</th>
+                  <th>Risk</th>
+                  <th>Level</th>
+                  <th>Fraud Indicators</th>
                 </tr>
               </thead>
 
@@ -315,45 +383,68 @@ function App() {
 
                   return (
                     <tr key={transaction.id}>
-                      <td>{transaction.customerId}</td>
+                      <td>
+                        <strong>{transaction.customerId}</strong>
+                      </td>
 
-                      <td>₹{transaction.amount}</td>
+                      <td className="amount">
+                        ₹{Number(transaction.amount).toLocaleString("en-IN")}
+                      </td>
 
                       <td>{transaction.merchant}</td>
 
                       <td>{transaction.location}</td>
 
-                      <td>{transaction.transactionType}</td>
+                      <td>
+                        <span className="type-badge">
+                          {transaction.transactionType}
+                        </span>
+                      </td>
 
                       <td>{transaction.deviceId}</td>
 
-                      <td>{transaction.timestamp}</td>
+                      <td className="timestamp">
+                        {transaction.timestamp
+                          ? transaction.timestamp.replace("T", " ")
+                          : "-"}
+                      </td>
 
-                      <td>{result?.riskScore ?? "Analyzing..."}</td>
+                      <td>
+                        {result ? (
+                          <div className="risk-score">
+                            <strong>{result.riskScore}</strong>
+                            <span>/100</span>
+                          </div>
+                        ) : (
+                          <span className="analyzing-text">Analyzing...</span>
+                        )}
+                      </td>
 
                       <td>
                         <span
-                          className={`risk-badge ${
-                            result?.riskLevel?.toLowerCase() || "analyzing"
-                          }`}
+                          className={`risk-badge ${getRiskClass(
+                            result?.riskLevel,
+                          )}`}
                         >
-                          {result?.riskLevel || "Analyzing..."}
+                          {result?.riskLevel || "Analyzing"}
                         </span>
                       </td>
 
                       <td>
                         {result?.reasons?.length > 0 ? (
-                          <ul className="fraud-reasons">
+                          <div className="fraud-reasons">
                             {result.reasons.map((reason, reasonIndex) => (
-                              <li key={reasonIndex}>{reason}</li>
+                              <span className="reason" key={reasonIndex}>
+                                {reason}
+                              </span>
                             ))}
-                          </ul>
+                          </div>
                         ) : result ? (
                           <span className="no-risk-reason">
                             No fraud indicators
                           </span>
                         ) : (
-                          "Analyzing..."
+                          <span className="analyzing-text">Analyzing...</span>
                         )}
                       </td>
                     </tr>
@@ -364,6 +455,15 @@ function App() {
           </div>
         )}
       </section>
+
+      {/* Footer */}
+
+      <footer className="footer">
+        <p>
+          Fraud Detection System • Real-Time Monitoring • Kafka + Spring Boot +
+          React
+        </p>
+      </footer>
     </div>
   );
 }
