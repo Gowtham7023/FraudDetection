@@ -13,6 +13,7 @@ import tools.jackson.databind.ObjectMapper;
 public class TransactionConsumer {
 
     private final FraudDetectionService fraudDetectionService;
+
     private final ObjectMapper objectMapper;
 
     public TransactionConsumer(
@@ -37,6 +38,20 @@ public class TransactionConsumer {
 
             FraudRequest transaction =
                     objectMapper.readValue(message, FraudRequest.class);
+
+            // Transactions received through Kafka are real new transactions.
+            // They are allowed to generate fraud alerts.
+            transaction.setSendAlert(true);
+
+            System.out.println(
+                    "Transaction Timestamp: "
+                            + transaction.getTimestamp()
+            );
+
+            System.out.println(
+                    "Send Alert: "
+                            + transaction.isSendAlert()
+            );
 
             FraudResponse result =
                     fraudDetectionService.analyze(transaction);

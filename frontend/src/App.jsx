@@ -4,8 +4,7 @@ import "./App.css";
 
 function App() {
   const [transactions, setTransactions] = useState([]);
-  const [riskResults, setRiskResults] = useState([]);
-
+  const [riskResults, setRiskResults] = useState({});
   const [formData, setFormData] = useState({
     customerId: "",
     amount: "",
@@ -18,59 +17,99 @@ function App() {
 
   const [message, setMessage] = useState("");
 
-  const highRiskCount = riskResults.filter(
+  const highRiskCount = Object.values(riskResults).filter(
     (result) => result.riskLevel === "HIGH",
   ).length;
 
-  const mediumRiskCount = riskResults.filter(
+  const mediumRiskCount = Object.values(riskResults).filter(
     (result) => result.riskLevel === "MEDIUM",
   ).length;
 
-  const lowRiskCount = riskResults.filter(
+  const lowRiskCount = Object.values(riskResults).filter(
     (result) => result.riskLevel === "LOW",
   ).length;
 
-  const fetchTransactions = () => {
-    axios
-      .get("http://localhost:8080/api/transactions")
+  // Analyze one transaction
+  const analyzeTransaction = (transaction) => {
+    return axios
+      .post("http://localhost:8080/api/fraud/analyze", {
+        id: transaction.id,
+        customerId: transaction.customerId,
+        amount: transaction.amount,
+        currency: transaction.currency,
+        merchant: transaction.merchant,
+        location: transaction.location,
+        transactionType: transaction.transactionType,
+        deviceId: transaction.deviceId,
+        timestamp: transaction.timestamp,
+
+        // Dashboard analysis must NOT send a Kafka alert
+        sendAlert: false,
+      })
       .then((response) => {
-        setTransactions(response.data);
-
-        const analysisRequests = response.data.map((transaction) =>
-          axios.post("http://localhost:8080/api/fraud/analyze", {
-            customerId: transaction.customerId,
-            amount: transaction.amount,
-            currency: transaction.currency,
-            merchant: transaction.merchant,
-            location: transaction.location,
-            transactionType: transaction.transactionType,
-            deviceId: transaction.deviceId,
-          }),
-        );
-
-        Promise.all(analysisRequests)
-          .then((results) => {
-            setRiskResults(results.map((result) => result.data));
-          })
-          .catch((error) => {
-            console.error("Error analyzing transactions:", error);
-          });
+        return {
+          id: transaction.id,
+          result: response.data,
+        };
       })
       .catch((error) => {
-        console.error("Error fetching transactions:", error);
+        console.error("Error analyzing transaction:", transaction.id, error);
+
+        return null;
       });
   };
 
-  useEffect(() => {
-    // Load transactions when dashboard starts
-    fetchTransactions();
+  // Fetch transactions
+  const fetchTransactions = () => {
+    return axios
+      .get("http://localhost:8080/api/transactions")
+      .then((response) => {
+        setTransactions(response.data);
+        return response.data;
+      })
+      .catch((error) => {
+        console.error("Error fetching transactions:", error);
+        return [];
+      });
+  };
 
-    // Automatically refresh every 5 seconds
+  // Analyze all existing transactions once
+  const analyzeExistingTransactions = (transactionList) => {
+    if (!transactionList || transactionList.length === 0) {
+      return;
+    }
+
+    const analysisRequests = transactionList.map((transaction) =>
+      analyzeTransaction(transaction),
+    );
+
+    Promise.all(analysisRequests).then((results) => {
+      const newRiskResults = {};
+
+      results.forEach((item) => {
+        if (item) {
+          newRiskResults[item.id] = item.result;
+        }
+      });
+
+      setRiskResults(newRiskResults);
+    });
+  };
+
+  useEffect(() => {
+    // First dashboard load
+    fetchTransactions().then((transactionList) => {
+      // Analyze existing transactions only once
+      analyzeExistingTransactions(transactionList);
+    });
+
+    // Refresh transaction list every 5 seconds.
+    // IMPORTANT:
+    // We do NOT analyze transactions again here.
     const interval = setInterval(() => {
       fetchTransactions();
     }, 5000);
 
-    // Stop the interval when the component is removed
     return () => clearInterval(interval);
   }, []);
 
@@ -96,7 +135,9 @@ function App() {
         transactionType: formData.transactionType,
         deviceId: formData.deviceId,
       })
-      .then(() => {
+      .then((response) => {
+        const newTransaction = response.data;
+
         setMessage("Transaction created successfully!");
 
         setFormData({
@@ -109,7 +150,22 @@ function App() {
           deviceId: "",
         });
 
-        fetchTransactions();
+        // Add new transaction immediately
+        setTransactions((previousTransactions) => [
+          ...previousTransactions,
+          newTransaction,
+        ]);
+
+        // Analyze new transaction exactly once.
+        // The backend Kafka flow already handles the real alert.
+        analyzeTransaction(newTransaction).then((item) => {
+          if (item) {
+            setRiskResults((previousResults) => ({
+              ...previousResults,
+              [item.id]: item.result,
+            }));
+          }
+        });
       })
       .catch((error) => {
         console.error("Error creating transaction:", error);
@@ -254,54 +310,55 @@ function App() {
               </thead>
 
               <tbody>
-                {transactions.map((transaction, index) => (
-                  <tr key={transaction.id}>
-                    <td>{transaction.customerId}</td>
+                {transactions.map((transaction) => {
+                  const result = riskResults[transaction.id];
 
-                    <td>₹{transaction.amount}</td>
+                  return (
+                    <tr key={transaction.id}>
+                      <td>{transaction.customerId}</td>
 
-                    <td>{transaction.merchant}</td>
+                      <td>₹{transaction.amount}</td>
 
-                    <td>{transaction.location}</td>
+                      <td>{transaction.merchant}</td>
 
-                    <td>{transaction.transactionType}</td>
+                      <td>{transaction.location}</td>
 
-                    <td>{transaction.deviceId}</td>
+                      <td>{transaction.transactionType}</td>
 
-                    <td>{transaction.timestamp}</td>
+                      <td>{transaction.deviceId}</td>
 
-                    <td>{riskResults[index]?.riskScore ?? "Analyzing..."}</td>
+                      <td>{transaction.timestamp}</td>
 
-                    <td>
-                      <span
-                        className={`risk-badge ${
-                          riskResults[index]?.riskLevel?.toLowerCase() ||
-                          "analyzing"
-                        }`}
-                      >
-                        {riskResults[index]?.riskLevel || "Analyzing..."}
-                      </span>
-                    </td>
+                      <td>{result?.riskScore ?? "Analyzing..."}</td>
 
-                    <td>
-                      {riskResults[index]?.reasons?.length > 0 ? (
-                        <ul className="fraud-reasons">
-                          {riskResults[index].reasons.map(
-                            (reason, reasonIndex) => (
-                              <li key={reasonIndex}>{reason}</li>
-                            ),
-                          )}
-                        </ul>
-                      ) : riskResults[index] ? (
-                        <span className="no-risk-reason">
-                          No fraud indicators
+                      <td>
+                        <span
+                          className={`risk-badge ${
+                            result?.riskLevel?.toLowerCase() || "analyzing"
+                          }`}
+                        >
+                          {result?.riskLevel || "Analyzing..."}
                         </span>
-                      ) : (
-                        "Analyzing..."
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+
+                      <td>
+                        {result?.reasons?.length > 0 ? (
+                          <ul className="fraud-reasons">
+                            {result.reasons.map((reason, reasonIndex) => (
+                              <li key={reasonIndex}>{reason}</li>
+                            ))}
+                          </ul>
+                        ) : result ? (
+                          <span className="no-risk-reason">
+                            No fraud indicators
+                          </span>
+                        ) : (
+                          "Analyzing..."
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

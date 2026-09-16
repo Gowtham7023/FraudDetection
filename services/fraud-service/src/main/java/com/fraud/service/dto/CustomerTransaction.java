@@ -3,7 +3,7 @@ package com.fraud.service.dto;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-public class FraudRequest {
+public class CustomerTransaction {
 
     private String id;
     private String customerId;
@@ -15,11 +15,7 @@ public class FraudRequest {
     private String deviceId;
     private LocalDateTime timestamp;
 
-    private boolean sendAlert;
-
-    public FraudRequest() {
-        this.timestamp = LocalDateTime.now();
-        this.sendAlert = false;
+    public CustomerTransaction() {
     }
 
     public String getId() {
@@ -92,13 +88,5 @@ public class FraudRequest {
 
     public void setTimestamp(LocalDateTime timestamp) {
         this.timestamp = timestamp;
-    }
-
-    public boolean isSendAlert() {
-        return sendAlert;
-    }
-
-    public void setSendAlert(boolean sendAlert) {
-        this.sendAlert = sendAlert;
     }
 }

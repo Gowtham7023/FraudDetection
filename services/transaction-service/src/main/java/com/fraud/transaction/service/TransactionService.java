@@ -44,4 +44,8 @@ public class TransactionService {
     public Transaction getTransactionById(String id) {
         return transactionRepository.findById(id).orElse(null);
     }
+
+    public List<Transaction> getTransactionsByCustomer(String customerId) {
+        return transactionRepository.findByCustomerId(customerId);
+    }
 }

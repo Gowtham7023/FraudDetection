@@ -30,4 +30,11 @@ public class TransactionController {
     public Transaction getTransactionById(@PathVariable String id) {
         return transactionService.getTransactionById(id);
     }
+
+    @GetMapping("/customer/{customerId}")
+    public List<Transaction> getTransactionsByCustomer(
+            @PathVariable String customerId) {
+
+        return transactionService.getTransactionsByCustomer(customerId);
+    }
 }
