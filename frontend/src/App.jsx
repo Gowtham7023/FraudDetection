@@ -62,7 +62,16 @@ function App() {
   };
 
   useEffect(() => {
+    // Load transactions when dashboard starts
     fetchTransactions();
+
+    // Automatically refresh every 5 seconds
+    const interval = setInterval(() => {
+      fetchTransactions();
+    }, 5000);
+
+    // Stop the interval when the component is removed
+    return () => clearInterval(interval);
   }, []);
 
   const handleChange = (event) => {
