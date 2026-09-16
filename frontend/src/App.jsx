@@ -247,7 +247,9 @@ function App() {
                   <th>Type</th>
                   <th>Device</th>
                   <th>Timestamp</th>
+                  <th>Risk Score</th>
                   <th>Risk Level</th>
+                  <th>Fraud Reasons</th>
                 </tr>
               </thead>
 
@@ -255,12 +257,20 @@ function App() {
                 {transactions.map((transaction, index) => (
                   <tr key={transaction.id}>
                     <td>{transaction.customerId}</td>
+
                     <td>₹{transaction.amount}</td>
+
                     <td>{transaction.merchant}</td>
+
                     <td>{transaction.location}</td>
+
                     <td>{transaction.transactionType}</td>
+
                     <td>{transaction.deviceId}</td>
+
                     <td>{transaction.timestamp}</td>
+
+                    <td>{riskResults[index]?.riskScore ?? "Analyzing..."}</td>
 
                     <td>
                       <span
@@ -271,6 +281,24 @@ function App() {
                       >
                         {riskResults[index]?.riskLevel || "Analyzing..."}
                       </span>
+                    </td>
+
+                    <td>
+                      {riskResults[index]?.reasons?.length > 0 ? (
+                        <ul className="fraud-reasons">
+                          {riskResults[index].reasons.map(
+                            (reason, reasonIndex) => (
+                              <li key={reasonIndex}>{reason}</li>
+                            ),
+                          )}
+                        </ul>
+                      ) : riskResults[index] ? (
+                        <span className="no-risk-reason">
+                          No fraud indicators
+                        </span>
+                      ) : (
+                        "Analyzing..."
+                      )}
                     </td>
                   </tr>
                 ))}
