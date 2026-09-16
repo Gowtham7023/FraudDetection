@@ -6,6 +6,8 @@ function App() {
   const [transactions, setTransactions] = useState([]);
   const [riskResults, setRiskResults] = useState({});
   const [alerts, setAlerts] = useState([]);
+  const [previousAlertCount, setPreviousAlertCount] = useState(0);
+  const [newAlert, setNewAlert] = useState(false);
 
   const [formData, setFormData] = useState({
     customerId: "",
@@ -100,6 +102,20 @@ function App() {
           .reverse();
 
         setAlerts(parsedAlerts);
+
+        // Detect newly received fraud alert
+        if (
+          previousAlertCount !== 0 &&
+          parsedAlerts.length > previousAlertCount
+        ) {
+          setNewAlert(true);
+
+          setTimeout(() => {
+            setNewAlert(false);
+          }, 4000);
+        }
+
+        setPreviousAlertCount(parsedAlerts.length);
       })
       .catch((error) => {
         console.error("Error fetching fraud alerts:", error);
@@ -256,6 +272,24 @@ function App() {
       </header>
 
       {/* =========================
+          LIVE DETECTION BANNER
+      ========================= */}
+
+      {newAlert && (
+        <div className="live-fraud-banner">
+          <span className="live-fraud-icon">🚨</span>
+
+          <div>
+            <strong>New Fraud Alert Detected</strong>
+            <p>
+              A high-risk transaction was detected by the real-time fraud
+              detection pipeline.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* =========================
           STATISTICS
       ========================= */}
 
@@ -305,6 +339,7 @@ function App() {
         <div className="panel-header transaction-header">
           <div>
             <h2>🚨 Fraud Alerts</h2>
+
             <p>Real-time high-risk transactions detected by the system</p>
           </div>
 
@@ -319,6 +354,7 @@ function App() {
 
             <div>
               <h3>No Fraud Alerts</h3>
+
               <p>No high-risk alerts have been received yet.</p>
             </div>
           </div>
@@ -369,6 +405,7 @@ function App() {
         <div className="panel-header">
           <div>
             <h2>Create New Transaction</h2>
+
             <p>Submit a transaction for real-time fraud analysis</p>
           </div>
         </div>
@@ -481,6 +518,7 @@ function App() {
         <div className="panel-header transaction-header">
           <div>
             <h2>Recent Transactions</h2>
+
             <p>Live transaction risk analysis</p>
           </div>
 

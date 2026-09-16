@@ -723,3 +723,56 @@ td strong {
     gap: 5px;
   }
 }
+/* =========================
+   LIVE FRAUD ALERT BANNER
+========================= */
+
+.live-fraud-banner {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 16px 20px;
+  margin-bottom: 25px;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-left: 5px solid #dc2626;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.08);
+  animation: fraudAlertPulse 0.5s ease;
+}
+
+.live-fraud-icon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fee2e2;
+  border-radius: 50%;
+  font-size: 21px;
+  flex-shrink: 0;
+}
+
+.live-fraud-banner strong {
+  display: block;
+  color: #b91c1c;
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+
+.live-fraud-banner p {
+  color: #7f1d1d;
+  font-size: 12px;
+}
+
+@keyframes fraudAlertPulse {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
