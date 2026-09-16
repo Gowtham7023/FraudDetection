@@ -1,6 +1,7 @@
 package com.fraud.service.ml;
 
 import com.fraud.service.dto.FraudRequest;
+
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -19,6 +20,7 @@ public class MLServiceClient {
     public double getMLRiskScore(FraudRequest transaction) {
 
         try {
+
             Map<String, Object> request = new HashMap<>();
 
             request.put(
@@ -48,7 +50,7 @@ public class MLServiceClient {
 
             Map<String, Object> response =
                     restTemplate.postForObject(
-                            "http://localhost:8000/predict",
+                            "http://host.docker.internal:8000/predict",
                             request,
                             Map.class
                     );

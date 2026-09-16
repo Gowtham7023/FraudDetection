@@ -1,6 +1,7 @@
 package com.fraud.service.client;
 
 import com.fraud.service.dto.CustomerTransaction;
+
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -25,7 +26,7 @@ public class TransactionHistoryClient {
         try {
 
             String url =
-                    "http://localhost:8083/api/transactions/customer/"
+                    "http://host.docker.internal:8083/api/transactions/customer/"
                     + customerId;
 
             ResponseEntity<List<CustomerTransaction>> response =
@@ -44,7 +45,7 @@ public class TransactionHistoryClient {
 
             System.out.println(
                     "Unable to retrieve customer transaction history: "
-                    + e.getMessage()
+                            + e.getMessage()
             );
         }
 
