@@ -26,7 +26,7 @@ public class TransactionHistoryClient {
         try {
 
             String url =
-                    "http://host.docker.internal:8083/api/transactions/customer/"
+                    "http://transaction-service:8083/api/transactions/customer/"
                     + customerId;
 
             ResponseEntity<List<CustomerTransaction>> response =

@@ -1,0 +1,88 @@
+services:
+  transaction-service:
+    build:
+      context: ./services/transaction-service
+      dockerfile: Dockerfile
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - fraud-network
+
+  ml-service:
+    build:
+      context: ./ml-service
+      dockerfile: Dockerfile
+    networks:
+      - fraud-network
+
+  fraud-service:
+    build:
+      context: ./services/fraud-service
+      dockerfile: Dockerfile
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      transaction-service:
+        condition: service_started
+      ml-service:
+        condition: service_started
+    networks:
+      - fraud-network
+
+  alert-service:
+    build:
+      context: ./services/alert-service
+      dockerfile: Dockerfile
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ALERT_KAFKA_GROUP_ID: alert-service-docker
+    networks:
+      - fraud-network
+
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    environment:
+      AUTH_USERNAME: ${AUTH_USERNAME:?AUTH_USERNAME must be set}
+      AUTH_PASSWORD: ${AUTH_PASSWORD:?AUTH_PASSWORD must be set}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      SPRING_CLOUD_GATEWAY_SERVER_WEBMVC_ROUTES_0_ID: transaction-service
+      SPRING_CLOUD_GATEWAY_SERVER_WEBMVC_ROUTES_0_URI: http://transaction-service:8083
+      SPRING_CLOUD_GATEWAY_SERVER_WEBMVC_ROUTES_0_PREDICATES_0: Path=/api/transactions/**
+      SPRING_CLOUD_GATEWAY_SERVER_WEBMVC_ROUTES_1_ID: fraud-service
+      SPRING_CLOUD_GATEWAY_SERVER_WEBMVC_ROUTES_1_URI: http://fraud-service:8081
+      SPRING_CLOUD_GATEWAY_SERVER_WEBMVC_ROUTES_1_PREDICATES_0: Path=/api/fraud/**
+      SPRING_CLOUD_GATEWAY_SERVER_WEBMVC_ROUTES_2_ID: alert-service
+      SPRING_CLOUD_GATEWAY_SERVER_WEBMVC_ROUTES_2_URI: http://alert-service:8082
+      SPRING_CLOUD_GATEWAY_SERVER_WEBMVC_ROUTES_2_PREDICATES_0: Path=/api/alerts/**
+    depends_on:
+      transaction-service:
+        condition: service_started
+      fraud-service:
+        condition: service_started
+      alert-service:
+        condition: service_started
+    networks:
+      - fraud-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    depends_on:
+      gateway:
+        condition: service_started
+    networks:
+      - fraud-network
+
+networks:
+  fraud-network:
+    name: kafka_default
+    external: true

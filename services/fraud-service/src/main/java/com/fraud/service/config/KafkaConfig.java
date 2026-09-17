@@ -10,6 +10,7 @@ import org.apache.kafka.common.serialization.StringSerializer;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
@@ -26,13 +27,14 @@ public class KafkaConfig {
     // =========================
 
     @Bean
-    public ConsumerFactory<String, String> consumerFactory() {
+    public ConsumerFactory<String, String> consumerFactory(
+            @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers) {
 
         Map<String, Object> config = new HashMap<>();
 
         config.put(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                "host.docker.internal:9092"
+                bootstrapServers
         );
 
         config.put(
@@ -71,13 +73,14 @@ public class KafkaConfig {
     // =========================
 
     @Bean
-    public ProducerFactory<String, String> producerFactory() {
+    public ProducerFactory<String, String> producerFactory(
+            @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers) {
 
         Map<String, Object> config = new HashMap<>();
 
         config.put(
                 ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                "host.docker.internal:9092"
+                bootstrapServers
         );
 
         config.put(

@@ -50,7 +50,7 @@ public class MLServiceClient {
 
             Map<String, Object> response =
                     restTemplate.postForObject(
-                            "http://host.docker.internal:8000/predict",
+                            "http://ml-service:8000/predict",
                             request,
                             Map.class
                     );

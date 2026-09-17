@@ -15,7 +15,7 @@ public class AlertConsumer {
 
     @KafkaListener(
             topics = "fraud-alerts",
-            groupId = "alert-service"
+            groupId = "${ALERT_KAFKA_GROUP_ID:alert-service}"
     )
     public void consumeAlert(String message) {
 

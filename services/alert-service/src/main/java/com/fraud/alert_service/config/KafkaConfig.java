@@ -5,6 +5,7 @@ import java.util.Map;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
@@ -15,18 +16,20 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 public class KafkaConfig {
 
     @Bean
-    public ConsumerFactory<String, String> consumerFactory() {
+    public ConsumerFactory<String, String> consumerFactory(
+            @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers,
+            @Value("${ALERT_KAFKA_GROUP_ID:alert-service}") String groupId) {
 
         Map<String, Object> config = new HashMap<>();
 
         config.put(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                "127.0.0.1:29092"
+                bootstrapServers
         );
 
         config.put(
                 ConsumerConfig.GROUP_ID_CONFIG,
-                "alert-service"
+                groupId
         );
 
         config.put(
